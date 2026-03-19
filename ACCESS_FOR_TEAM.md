@@ -1,19 +1,28 @@
 # Доступ к Camunda 8 для сотрудников модуля «Цифровизация проектных задач УЭ»
 
-## Ссылки (офисная LAN)
+## Основные ссылки
 
 | Компонент            | URL                                |
 | -------------------- | ---------------------------------- |
-| **Operate** (мониторинг процессов) | http://10.16.66.48:8088/operate  |
-| **Tasklist** (задачи) | http://10.16.66.48:8088/tasklist |
-| **Optimize** (аналитика) | http://10.16.66.48:8083          |
-| REST API             | http://10.16.66.48:8088/v2        |
-| Console              | http://10.16.66.48:8087            |
+| **Operate** (мониторинг процессов) | https://camunda.acom-offer-desk.ru/operate |
+| **Tasklist** (задачи) | https://camunda.acom-offer-desk.ru/tasklist |
+| **Web Modeler** (моделирование BPMN в браузере) | https://camunda.acom-offer-desk.ru/modeler |
+| **Keycloak admin** (создание пользователей) | https://camunda.acom-offer-desk.ru/auth/admin/ |
+| **Console** (администрирование, кластер) | https://camunda.acom-offer-desk.ru/console/ |
+| **Optimize** (аналитика, дашборды) | https://camunda.acom-offer-desk.ru/optimize/ |
+| **Identity** (пользователи, роли) | https://camunda.acom-offer-desk.ru/identity |
+| REST API | https://camunda.acom-offer-desk.ru/v2 |
+| **Logout (выйти из аккаунта)** | https://camunda.acom-offer-desk.ru/logout |
 
-**Важно:** Доступ только из офисной сети 10.16.x.
+**Примечание:** Console и Optimize работают после применения nginx на VPS — см. `FIXES_APPLIED.md` раздел 15, скрипт `scripts/apply-nginx-console-optimize.sh`.
 
-**Доступ с ноутов через Tailscale (Wi‑Fi Alabuga и др.):**  
-Скачать архив `Camunda-OneClick-Windows-AutoInstall.zip` с Desktop сервера, извлечь, запустить `START_CAMUNDA.cmd`. После установки Tailscale и входа в tailnet откроются `http://100.69.139.22:8088/operate` и `.../tasklist`. Логин: demo / demo.
+**Важно:** Для коллег основной доступ больше не требует Tailscale-клиента на ноуте. Публичная точка входа — VPS с доменом `camunda.acom-offer-desk.ru`, сам стек Camunda продолжает работать на корпоративном сервере.
+
+**Внутренний маршрут (служебно):**  
+`VPS -> https://camunda.acom-offer-desk.ru -> Nginx -> Tailscale 100.69.139.22 -> Camunda на pop-os`
+
+**Резервный доступ через Tailscale:**  
+Старый Tailscale-сценарий оставлен только как запасной/администраторский способ. Для обычных пользователей использовать домен.
 
 **Примечание для Camunda 8.8:** URL `.../tasklist` может открывать unified UI (Operate) — это допустимое поведение orchestration cluster.
 
@@ -24,7 +33,7 @@
 - **Логин:** `demo`
 - **Пароль:** `demo`
 
-Рекомендуется сменить пароль после первого входа (через Identity или Keycloak).
+Рекомендуется отказаться от общего `demo/demo` и создавать именные учётные записи коллег в Keycloak.
 
 ---
 
@@ -39,13 +48,133 @@
 
 ---
 
+## Logout (выход из аккаунта)
+
+### Проблема
+
+Кнопка «Logout» в Operate (и в других компонентах Camunda) **не выполняет полный выход**. При нажатии страница просто обновляется, пользователь остаётся залогиненным.
+
+**Причина:** В Camunda 8.8 пока нет полноценной интеграции с Keycloak по OIDC RP-Initiated Logout. Это запланировано в более новых версиях ([PR #32224](https://github.com/camunda/camunda/pull/32224) отложен).
+
+### Обходное решение
+
+Чтобы выйти из аккаунта, откройте:
+
+**https://camunda.acom-offer-desk.ru/logout**
+
+(Редирект на Keycloak end_session; маршрут `/logout` добавлен в nginx через `apply-nginx-console-optimize.sh`)
+
+Эта ссылка сбрасывает сессию в Keycloak. После неё при следующем входе в Operate, Tasklist, Console, Optimize будет предложен экран логина.
+
+**Рекомендация:** Добавить эту ссылку в закладки или скопировать в заметки для быстрого выхода.
+
+---
+
 ## Моделирование BPMN
 
-Для отрисовки процессов используйте **Desktop Modeler** (не Web Modeler):
+Основной вариант для команды:
+
+- **Web Modeler**: `https://camunda.acom-offer-desk.ru/modeler`
+- Для доступа нужна роль `Web Modeler` или `Web Modeler Admin` в `Management Identity`
+
+Резервный локальный вариант для администратора:
 
 - Скачать: https://camunda.com/download/modeler/
 - Лицензия: MIT, бесплатно
-- Подключение к Zeebe: `http://10.16.66.48:8088` (порт 26500), Auth: None
+- Подключение к Zeebe для локального администрирования: `http://10.16.66.48:8088` (порт `26500`), Auth: None
+
+---
+
+## Кратко: как выдали полный доступ `alexander_kotov`
+
+- пользователь `alexander_kotov` уже был создан в `Keycloak`
+
+**Учётные данные:**
+- **Логин:** `alexander_kotov`
+- **Пароль:** `AKotov`
+- в `Identity` у пользователя была подтверждена cluster-роль `admin`
+- недостающие management-роли были выданы с сервера через `kcadm`, по образцу пользователя `demo`
+
+Назначенные роли:
+
+- `ManagementIdentity`
+- `Optimize`
+- `Web Modeler`
+- `Web Modeler Admin`
+- `Console`
+- `Orchestration`
+
+Короткая команда, которой это сделали:
+
+```bash
+docker compose -f docker-compose-full.yaml exec -T keycloak /opt/bitnami/keycloak/bin/kcadm.sh add-roles -r camunda-platform --config /tmp/kcadm.config --uid <USER_ID> --rolename ManagementIdentity --rolename Optimize --rolename "Web Modeler" --rolename "Web Modeler Admin" --rolename Console --rolename Orchestration
+```
+
+Чем проверили:
+
+- вход под `alexander_kotov` в `https://camunda.acom-offer-desk.ru/modeler`
+- открывается `Home`
+- работает `Create new project`
+- `Operate` и `Identity` открываются без ошибки доступа
+
+---
+
+## Кратко: как выдали полный доступ `igor_bolshakov`
+
+- пользователь `igor_bolshakov` создан в `Keycloak` (realm `camunda-platform`)
+- в `Identity` у пользователя подтверждена cluster-роль `admin`
+- management-роли выданы через `kcadm`, по образцу `demo` и `alexander_kotov`
+
+**Учётные данные:**
+- **Логин:** `igor_bolshakov`
+- **Пароль:** `IBolshakov`
+
+---
+
+## Шпаргалка igor_bolshakov: логин, пароль, ссылки и офф. документация
+
+| Логин | Пароль |
+|-------|--------|
+| `igor_bolshakov` | `IBolshakov` |
+
+### Ссылки и краткое описание (с офф. документацией)
+
+| Компонент | URL | Краткое описание | Офф. документация |
+|-----------|-----|------------------|-------------------|
+| **Operate** | https://camunda.acom-offer-desk.ru/operate | Мониторинг и отладка процессов: просмотр активных/завершённых инстансов, инциденты, переменные, batch-операции | [Introduction to Operate](https://docs.camunda.io/docs/components/operate/operate-introduction/) |
+| **Tasklist** | https://camunda.acom-offer-desk.ru/tasklist | Выполнение пользовательских задач (User Tasks): задачи назначаются пользователям при выполнении BPMN-процессов | [Introduction to Tasklist](https://docs.camunda.io/docs/components/tasklist/introduction-to-tasklist/) |
+| **Console** | https://camunda.acom-offer-desk.ru/console/ | Администрирование Camunda 8: управление кластерами, доступом, настройками | [Introduction to Console](https://docs.camunda.io/docs/components/console/introduction-to-console/) |
+| **Optimize** | https://camunda.acom-offer-desk.ru/optimize/ | Аналитика процессов: метрики, дашборды, отчёты для улучшения процессов | [Getting started with Optimize](https://docs.camunda.io/docs/components/optimize/improve-processes-with-optimize/) |
+| **Web Modeler** | https://camunda.acom-offer-desk.ru/modeler | Моделирование BPMN в браузере: создание и редактирование диаграмм процессов | [Web Modeler](https://docs.camunda.io/docs/components/modeler/web-modeler/) |
+| **Identity** | https://camunda.acom-offer-desk.ru/identity | Управление пользователями, ролями и доступом к Console, Web Modeler, Optimize | [What is Identity](https://docs.camunda.io/docs/self-managed/identity/what-is-identity/) |
+| **Keycloak admin** | https://camunda.acom-offer-desk.ru/auth/admin/ | Администрирование IdP: создание пользователей, realm, клиентов | [Connect to Keycloak](https://docs.camunda.io/docs/self-managed/identity/configuration/connect-to-an-existing-keycloak) |
+| **REST API** | https://camunda.acom-offer-desk.ru/v2 | API оркестрации: старт процессов, задачи, запросы | [Camunda 8 REST API Overview](https://docs.camunda.io/docs/apis-tools/camunda-api-rest/camunda-api-rest-overview) |
+
+*Портал Camunda 8 Docs: https://docs.camunda.io*
+
+---
+
+Назначенные роли:
+
+- `ManagementIdentity`
+- `Optimize`
+- `Web Modeler`
+- `Web Modeler Admin`
+- `Console`
+- `Orchestration`
+
+Короткая команда, которой это делают:
+
+```bash
+docker compose -f docker-compose-full.yaml exec -T keycloak /opt/bitnami/keycloak/bin/kcadm.sh add-roles -r camunda-platform --config /tmp/kcadm.config --uid <USER_ID> --rolename ManagementIdentity --rolename Optimize --rolename "Web Modeler" --rolename "Web Modeler Admin" --rolename Console --rolename Orchestration
+```
+
+Чем проверили:
+
+- вход под `igor_bolshakov` в `https://camunda.acom-offer-desk.ru/optimize/`
+- вход в `https://camunda.acom-offer-desk.ru/console/`
+- вход в `https://camunda.acom-offer-desk.ru/modeler`
+- `Operate`, `Tasklist`, `Identity` открываются без ошибки доступа
 
 ---
 

@@ -1,0 +1,43 @@
+# Добавить в nginx vhost для camunda.acom-offer-desk.ru (внутри server { ... })
+# Адрес 100.69.139.22 — Tailscale IP pop-os (корпоративный сервер Camunda)
+#
+# ВАЖНО: proxy_pass должен заканчиваться на /console/ и /optimize/ — иначе «Cannot GET /» и 404.
+
+location = /logout {
+    return 302 https://$host/auth/realms/camunda-platform/protocol/openid-connect/logout;
+}
+
+location = /console { return 301 /console/; }
+location = /optimize { return 301 /optimize/; }
+
+location /console/ {
+    proxy_pass http://100.69.139.22:8087/console/;
+    proxy_http_version 1.1;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host $host;
+}
+
+location /static/ {
+    proxy_pass http://100.69.139.22:8083/optimize/static/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host $host;
+}
+
+location /optimize/ {
+    proxy_pass http://100.69.139.22:8083/optimize/;
+    proxy_http_version 1.1;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host $host;
+}

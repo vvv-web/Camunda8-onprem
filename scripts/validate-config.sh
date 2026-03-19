@@ -122,7 +122,7 @@ main() {
 
   check_file_contains \
     "$ROOT_DIR/.identity/application.yaml" \
-    'issuer-url: "http://${HOST}:18080/auth/realms/camunda-platform"' \
+    'issuer-url: "https://${HOST}/auth/realms/camunda-platform"' \
     "Identity использует HOST для browser-facing issuer-url"
 
   check_file_contains \
@@ -132,18 +132,58 @@ main() {
 
   check_file_contains \
     "$ROOT_DIR/.identity/application.yaml" \
-    'root-url: "http://${HOST:localhost}:8088"' \
+    'root-url: "https://${HOST:localhost}"' \
     "Identity orchestration root-url параметризован через HOST"
 
   check_file_contains \
+    "$ROOT_DIR/.identity/application.yaml" \
+    'root-url: "https://${HOST}/modeler"' \
+    "Identity web-modeler root-url параметризован через HOST и /modeler"
+
+  check_file_contains \
     "$ROOT_DIR/.orchestration/application.yaml" \
-    'redirectRootUrl: "http://${HOST:localhost}:8088/operate"' \
+    'redirectRootUrl: "https://${HOST:localhost}/operate"' \
     "Operate redirectRootUrl параметризован через HOST"
 
   check_file_contains \
     "$ROOT_DIR/.orchestration/application.yaml" \
-    'redirectRootUrl: "http://${HOST:localhost}:8088/tasklist"' \
+    'redirectRootUrl: "https://${HOST:localhost}/tasklist"' \
     "Tasklist redirectRootUrl параметризован через HOST"
+
+  check_file_contains \
+    "$ROOT_DIR/docker-compose-full.yaml" \
+    'SERVER_URL: https://${HOST}/modeler' \
+    "Web Modeler webapp использует browser-facing URL через HOST и /modeler"
+
+  check_file_contains \
+    "$ROOT_DIR/docker-compose-full.yaml" \
+    'RESTAPI_SERVER_URL: https://${HOST}/modeler' \
+    "Web Modeler restapi использует browser-facing URL через HOST и /modeler"
+
+  check_file_contains \
+    "$ROOT_DIR/docker-compose-full.yaml" \
+    'RESTAPI_OAUTH2_TOKEN_ISSUER_BACKEND_URL: https://${HOST}/auth/realms/camunda-platform' \
+    "Web Modeler restapi использует согласованный issuer backend URL через HOST"
+
+  check_file_contains \
+    "$ROOT_DIR/docker-compose-full.yaml" \
+    'CLIENT_PUSHER_PATH: /modeler-ws' \
+    "Web Modeler webapp использует websocket path /modeler-ws"
+
+  check_file_contains \
+    "$ROOT_DIR/docker-compose-full.yaml" \
+    'PUSHER_APP_PATH: /modeler-ws' \
+    "Web Modeler websocket сервер использует path /modeler-ws"
+
+  check_file_contains \
+    "$ROOT_DIR/docker-compose-full.yaml" \
+    'OAUTH2_TOKEN_AUDIENCE: web-modeler' \
+    "Web Modeler webapp использует корректную token audience"
+
+  check_file_contains \
+    "$ROOT_DIR/docker-compose-full.yaml" \
+    'CAMUNDA_SECURITY_AUTHENTICATION_OIDC_AUDIENCES_3: web-modeler' \
+    "Orchestration принимает audience Web Modeler для BEARER_TOKEN сценария"
 
   check_connector_secrets_template
 

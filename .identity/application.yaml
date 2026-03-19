@@ -4,7 +4,7 @@ identity:
     multi-tenancy: "false"
 
   authProvider:
-    issuer-url: "http://${HOST}:18080/auth/realms/camunda-platform"
+    issuer-url: "https://${HOST}/auth/realms/camunda-platform"
     backend-url: "http://${KEYCLOAK_HOST}:18080/auth/realms/camunda-platform"
 
   component-presets:
@@ -22,9 +22,9 @@ identity:
         - name: "Console"
           id: console
           type: public
-          root-url: "http://localhost:8087"
+          root-url: "https://${HOST}/console"
           redirect-uris:
-            - "/"
+            - "/*"
       apis:
         - name: Console API
           audience: "console-api"
@@ -62,8 +62,8 @@ identity:
           id: orchestration
           type: confidential
           secret: ${VALUES_KEYCLOAK_INIT_ORCHESTRATION_SECRET:secret}
-          # root-url для LAN: HOST из .env (10.16.66.48) — см. FIXES_APPLIED.md
-          root-url: "http://${HOST:localhost}:8088"
+          # root-url для публичного входа через VPS и домен
+          root-url: "https://${HOST:localhost}"
           redirect-uris:
             - "/sso-callback"
       apis:
@@ -88,7 +88,7 @@ identity:
           id: optimize
           type: confidential
           secret: ${VALUES_KEYCLOAK_INIT_OPTIMIZE_SECRET:demo-optimize-secret}
-          root-url: "http://localhost:8083"
+          root-url: "https://${HOST}/optimize"
           redirect-uris:
             - "/api/authentication/callback"
       apis:
@@ -110,7 +110,7 @@ identity:
         - name: "Web Modeler"
           id: web-modeler
           type: public
-          root-url: "http://localhost:8070"
+          root-url: "https://${HOST}/modeler"
           redirect-uris:
             - "/login-callback"
       apis:
@@ -165,7 +165,7 @@ keycloak:
     connectors:
       secret: ${VALUES_KEYCLOAK_INIT_CONNECTORS_SECRET:demo-connectors-secret}
     webmodeler:
-      root-url: "http://localhost:8070"
+      root-url: "https://${HOST}/modeler"
   clients:
   environment:
     clients:

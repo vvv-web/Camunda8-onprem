@@ -92,6 +92,7 @@ camunda:
         admin:
           users:
             - demo
+            - igor_bolshakov
           clients:
             - orchestration
         connectors:
@@ -112,10 +113,10 @@ camunda:
   operate:
     persistentSessionsEnabled: true
     identity:
-      # HOST из .env (10.16.66.48) — для LAN-доступа редиректы OIDC должны использовать тот же адрес
-      redirectRootUrl: "http://${HOST:localhost}:8088/operate"
+      # Публичный адрес через VPS и домен должен совпадать с browser-facing URL
+      redirectRootUrl: "https://${HOST:localhost}/operate"
 
   tasklist:
     identity:
-      redirectRootUrl: "http://${HOST:localhost}:8088/tasklist"
+      redirectRootUrl: "https://${HOST:localhost}/tasklist"
 

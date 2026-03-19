@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+  id="Definitions_parent"
+  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="parent_order_process" name="Parent Order Process (with Call Activity)" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_Parent" name="Start">
+      <bpmn:outgoing>Flow_Parent_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:callActivity id="CallActivity_Approval" name="Call Approval Process">
+      <bpmn:extensionElements>
+        <zeebe:calledElement processId="child_approval" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Parent_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_Parent_2</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:endEvent id="EndEvent_Parent" name="Done">
+      <bpmn:incoming>Flow_Parent_2</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Parent_1" sourceRef="StartEvent_Parent" targetRef="CallActivity_Approval" />
+    <bpmn:sequenceFlow id="Flow_Parent_2" sourceRef="CallActivity_Approval" targetRef="EndEvent_Parent" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Parent">
+    <bpmndi:BPMNPlane id="BPMNPlane_Parent" bpmnElement="parent_order_process">
+      <bpmndi:BPMNShape id="StartEvent_Parent_di" bpmnElement="StartEvent_Parent">
+        <dc:Bounds x="173" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CallActivity_Approval_di" bpmnElement="CallActivity_Approval">
+        <dc:Bounds x="270" y="60" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Parent_di" bpmnElement="EndEvent_Parent">
+        <dc:Bounds x="452" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Parent_1_di" bpmnElement="Flow_Parent_1">
+        <di:waypoint x="209" y="120" />
+        <di:waypoint x="270" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Parent_2_di" bpmnElement="Flow_Parent_2">
+        <di:waypoint x="370" y="100" />
+        <di:waypoint x="452" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -245,9 +245,9 @@ curl -s -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application
 
 | Файл | Изменение |
 |------|-----------|
-| `.env` | `HOST=10.16.66.48` (LAN) или `100.69.139.22` (Tailscale); `KEYCLOAK_HOST=keycloak` |
-| `.identity/application.yaml` | `root-url: "http://${HOST:localhost}:8088"` для orchestration |
-| `.orchestration/application.yaml` | `redirectRootUrl` через `${HOST:localhost}` для operate/tasklist |
+| `.env` | `HOST=camunda.acom-offer-desk.ru`; `KEYCLOAK_HOST=keycloak` |
+| `.identity/application.yaml` | browser-facing `issuer-url` и `root-url` переведены на `https://${HOST}` |
+| `.orchestration/application.yaml` | `redirectRootUrl` переведён на `https://${HOST}/operate` и `/tasklist` |
 | `Camunda-OneClick-Windows-AutoInstall.zip` | На Desktop: `/home/cpz_ai/Desktop/` — скрипт для доступа с ноутов через Tailscale |
 
 ---
@@ -300,6 +300,242 @@ docker compose -f docker-compose-full.yaml exec -T keycloak /opt/bitnami/keycloa
 - На сервере в `.env`: `HOST=100.69.139.22` (Tailscale IP pop-os).
 - После `docker compose ... up -d --force-recreate keycloak identity orchestration`.
 - На ноуте: установить Tailscale, войти в тот же tailnet, открыть `http://100.69.139.22:8088/operate` и `.../tasklist`.
+
+---
+
+## 12. Публичный домен через VPS без установки Tailscale пользователям
+
+**Цель:** Пользователи команды открывают Camunda по домену `camunda.acom-offer-desk.ru`, при этом сам стек продолжает работать на корпоративном сервере `pop-os`.
+
+**Что сделано:**
+```bash
+# На VPS:
+# 1. создан отдельный nginx vhost camunda.acom-offer-desk.ru
+# 2. проксирование:
+#    /      -> http://100.69.139.22:8088
+#    /auth/ -> http://100.69.139.22:18080/auth/
+# 3. выпущен отдельный Let's Encrypt сертификат
+```
+
+**Изменения в Camunda:**
+- `HOST` в `.env` переведён на `camunda.acom-offer-desk.ru`
+- browser-facing OIDC URL переведены на `https://${HOST}/auth/...`
+- `redirectRootUrl` для Operate/Tasklist переведены на `https://${HOST}/operate` и `https://${HOST}/tasklist`
+- в Keycloak добавлены корректные redirect URI для клиента `orchestration`
+- для Keycloak включены `KC_HOSTNAME=https://${HOST}/auth` и `KC_PROXY_HEADERS=xforwarded`
+
+**Проверка:**
+```bash
+curl -I https://camunda.acom-offer-desk.ru/auth/
+curl -I https://camunda.acom-offer-desk.ru/operate
+
+ACCESS_TOKEN=$(curl -s --request POST "https://camunda.acom-offer-desk.ru/auth/realms/camunda-platform/protocol/openid-connect/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "client_id=orchestration" \
+  --data-urlencode "client_secret=secret" \
+  --data-urlencode "grant_type=client_credentials")
+```
+
+**Результат:**
+- `https://camunda.acom-offer-desk.ru/auth/` отвечает и редиректит на HTTPS admin path корректно
+- `https://camunda.acom-offer-desk.ru/operate` отвечает через VPS
+- публичный API `https://camunda.acom-offer-desk.ru/v2/process-definitions/search` отвечает `200`
+- существующие проекты `app.acom-offer-desk.ru`, `llm.acom-offer-desk.ru`, `webui.acom-offer-desk.ru` продолжают работать
+
+**Проверка Keycloak admin-функции:**
+- временный пользователь `camunda-smoke-user` был создан через `kcadm`, ему был установлен пароль, затем пользователь удалён
+- это подтверждает, что контур для создания коллег работает
+
+**Важно:**
+- пользователям больше не требуется Tailscale-клиент для обычного входа в Camunda
+- Tailscale остаётся только как внутренний защищённый канал между VPS и корпоративным сервером
+
+---
+
+## 13. Web Modeler через публичный домен - интеграция, ошибки, итог
+
+**Цель:** Включить `Web Modeler` для команды через `https://camunda.acom-offer-desk.ru/modeler` без поломки уже работающих `Operate`, `Tasklist`, `Identity` и `Keycloak`.
+
+**Что изменили в проекте:**
+- в `docker-compose-full.yaml` и `docker-compose-web-modeler.yaml` browser-facing URL для Web Modeler переведены с `localhost` на `https://${HOST}/modeler`
+- для websocket добавлен отдельный публичный путь `/modeler-ws`
+- в `web-modeler-webapp` включены:
+  - `CLIENT_PUSHER_HOST=${HOST}`
+  - `CLIENT_PUSHER_PORT=443`
+  - `CLIENT_PUSHER_PATH=/modeler-ws`
+  - `CLIENT_PUSHER_FORCE_TLS=true`
+- в `web-modeler-restapi` backend issuer переведён на `https://${HOST}/auth/realms/camunda-platform`
+- в `.identity/application.yaml` root URL для `web-modeler` переведён на `https://${HOST}/modeler`
+- в `orchestration` добавлена аудитория `web-modeler`
+- в `scripts/validate-config.sh` добавлены проверки на URL, websocket path и audience для Web Modeler
+- создан файл `NGINX_WEB_MODELER_SNIPPET.conf.example` с готовыми `location /modeler` и `location /modeler-ws`
+- обновлены `ACCESS_FOR_TEAM.md`, `DEPLOY_STEPS.md`, `PROJECT_INFO.md`
+
+**С чем столкнулись:**
+
+| Проблема | Причина | Как исправили |
+|----------|---------|---------------|
+| `web-modeler-restapi` unhealthy, `issuer mismatch` | backend ожидал внутренний issuer `http://keycloak:18080/...`, а Keycloak публиковал внешний `https://${HOST}/auth/...` | выровняли `RESTAPI_OAUTH2_TOKEN_ISSUER_BACKEND_URL` на внешний HTTPS issuer |
+| `web-modeler-webapp` не поднимался стабильно | frontend и backend были настроены на разные browser-facing URL и аудитории | синхронизировали `SERVER_URL`, audience и websocket-параметры |
+| публичный `https://camunda.acom-offer-desk.ru/modeler` отдавал `404` | на VPS в `nginx` не было отдельных маршрутов для `Web Modeler` | в vhost `camunda.acom-offer-desk.ru` добавлены `location /modeler` -> `http://100.69.139.22:8070` и `location /modeler-ws` -> `http://100.69.139.22:8060` |
+| риск сломать действующие маршруты `/` и `/auth/` | `Web Modeler` публиковался поверх уже работающего домена | добавлены только два новых `location`, существующие маршруты не менялись |
+| `curl` на `/modeler-ws` возвращает `404` | websocket endpoint не предназначен для обычной HTTP-проверки через простой `curl` | приняли это как некритично, потому что браузерный сценарий `Web Modeler` работает |
+
+**Что проверили:**
+```bash
+# локально на pop-os
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8070/modeler
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8088/operate
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8084
+
+# публично через VPS
+curl -k -I https://camunda.acom-offer-desk.ru/modeler
+curl -k -I https://camunda.acom-offer-desk.ru/modeler/login
+curl -k -I https://camunda.acom-offer-desk.ru/operate
+curl -k -I https://camunda.acom-offer-desk.ru/auth/
+```
+
+**Фактический результат проверки:**
+- `https://camunda.acom-offer-desk.ru/modeler` отвечает `302` на `/modeler/login`
+- `https://camunda.acom-offer-desk.ru/modeler/login` отвечает `200`
+- `https://camunda.acom-offer-desk.ru/operate` продолжает отвечать штатно
+- `https://camunda.acom-offer-desk.ru/auth/` продолжает отвечать штатно
+- в браузере `Web Modeler` открывается, загружается домашний экран `Modeler | Home`
+- кнопка `Create new project` работает, открывается экран `Modeler | New project`
+
+**Вывод:**
+- `Web Modeler` безопасно встроен в существующий on-prem стек
+- публичный вход для команды работает через домен
+- уже работающие компоненты Camunda не сломаны
+
+---
+
+## 14. Выдача полного доступа пользователю `alexander_kotov`
+
+**Что сделали:**
+- проверили, что у `alexander_kotov` уже есть cluster-роль `admin` в `Identity`
+- сравнили набор realm-ролей пользователя `demo` и `alexander_kotov` через `kcadm`
+- выдали `alexander_kotov` такой же management-набор ролей, как у `demo`
+
+**Назначенные роли:**
+- `ManagementIdentity`
+- `Optimize`
+- `Web Modeler`
+- `Web Modeler Admin`
+- `Console`
+- `Orchestration`
+
+**Команда:**
+```bash
+docker compose -f docker-compose-full.yaml exec -T keycloak /opt/bitnami/keycloak/bin/kcadm.sh add-roles \
+  -r camunda-platform \
+  --config /tmp/kcadm.config \
+  --uid 29eeb7de-0c43-4185-8337-ba99e8caca12 \
+  --rolename ManagementIdentity \
+  --rolename Optimize \
+  --rolename "Web Modeler" \
+  --rolename "Web Modeler Admin" \
+  --rolename Console \
+  --rolename Orchestration
+```
+
+**Чем проверили:**
+- под `alexander_kotov` открылся `Web Modeler`
+- работает `Create new project`
+- `Operate` открывается штатно
+- `Identity` открывается без ошибки доступа
+
+**Итог:**
+- пользователь `alexander_kotov` получил полный рабочий доступ к текущему стенду Camunda по нашей схеме доступа
+
+---
+
+## 15. Публичные маршруты /console и /optimize на VPS nginx
+
+**Проблема:** `https://camunda.acom-offer-desk.ru/console` и `/optimize` возвращали 404 — в nginx на VPS не было соответствующих `location`.
+
+**Решение:**
+1. Создан `NGINX_CONSOLE_OPTIMIZE_SNIPPET.conf.example` с готовыми `location` для Console (порт 8087) и Optimize (порт 8083).
+2. Создан скрипт `scripts/apply-nginx-console-optimize.sh` для безопасного применения на VPS.
+
+**Применение на VPS 155.212.160.162:**
+
+```bash
+# С pop-os (или машины с SSH-доступом к VPS):
+scp -r /home/cpz_ai/Desktop/Camunda8-onprem/scripts root@155.212.160.162:/tmp/camunda-scripts
+ssh root@155.212.160.162 'sudo bash /tmp/camunda-scripts/apply-nginx-console-optimize.sh'
+```
+
+Скрипт:
+- создаёт `/etc/nginx/snippets/camunda-console-optimize.conf`
+- ищет vhost для `camunda.acom-offer-desk.ru` и добавляет `include`
+- делает бэкап перед изменениями
+- выполняет `nginx -t` перед `reload`
+- при ошибке не выполняет `reload`
+
+**Ручное применение** (если скрипт не подходит):
+- Добавить блоки из `NGINX_CONSOLE_OPTIMIZE_SNIPPET.conf.example` в server { } vhost для camunda.acom-offer-desk.ru.
+- Выполнить `nginx -t && systemctl reload nginx`.
+
+**Проверка:**
+```bash
+curl -sI https://camunda.acom-offer-desk.ru/console/
+curl -sI https://camunda.acom-offer-desk.ru/optimize/
+```
+Ожидаемо: `302` или `200` (не 404).
+
+---
+
+## 16. Invalid parameter: redirect_uri для Console и Optimize (igor_bolshakov)
+
+**Проблема:** При входе под igor_bolshakov на `/console` и `/optimize` — ошибка `Invalid parameter: redirect_uri`. В Keycloak у клиентов `console` и `optimize` были root-url и redirect URIs только для localhost.
+
+**Решение:**
+1. Обновлён `.identity/application.yaml`: root-url для `console` и `optimize` переведены на `https://${HOST}/console` и `https://${HOST}/optimize`.
+2. Создан скрипт `scripts/fix-keycloak-redirect-uris.sh` — обновляет Keycloak clients через kcadm.
+
+**Применение:**
+```bash
+cd /home/cpz_ai/Desktop/Camunda8-onprem
+./scripts/fix-keycloak-redirect-uris.sh
+```
+
+**Источники:** [Camunda Identity Configuration](https://docs.camunda.io/docs/self-managed/identity/miscellaneous/configuration-variables/), [Keycloak Redirect URIs](https://www.keycloak.org/docs/latest/server_admin/#_redirect-uris).
+
+---
+
+## 17. Неверный proxy_pass для Console/Optimize и «Client disabled»
+
+**Симптомы:**
+- `/console/` — «Cannot GET /» или 404 (Express);
+- `/optimize/` — HTTP 404;
+- Keycloak — «We are sorry… Client disabled».
+
+**Причина 1 (nginx):** В сниппете были `proxy_pass http://UPSTREAM:8087/` и `…:8083/` **без** суффиксов `/console/` и `/optimize/`. По правилам nginx URI после `location` отрезается, на бэкенд уходит `/` вместо `/console/` и `/optimize/`. У Camunda Console задан `CAMUNDA_CONSOLE_CONTEXT_PATH: console`, Optimize — `SERVER_SERVLET_CONTEXT_PATH: /optimize`; корень `/` там не обслуживается.
+
+**Правильно:**
+```nginx
+proxy_pass http://100.69.139.22:8087/console/;
+proxy_pass http://100.69.139.22:8083/optimize/;
+```
+Плюс `location /static/` → `…:8083/optimize/static/` для OAuth redirect.
+
+**Офф. справка по proxy_pass:** [NGINX Reverse Proxy](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/).
+
+**Причина 2 (Keycloak):** Клиент OIDC отключён (`enabled=false`). Включить:
+
+```bash
+cd Camunda8-onprem
+./scripts/fix-keycloak-enable-clients.sh
+```
+
+Скрипт: `scripts/fix-keycloak-enable-clients.sh` — `enabled=true` для `orchestration`, `console`, `optimize`, `web-modeler`.
+
+**Проверка:**
+```bash
+curl -sI https://camunda.acom-offer-desk.ru/console/   # 200
+curl -sI https://camunda.acom-offer-desk.ru/optimize/ # 302 на auth
+```
 
 ---
 
