@@ -73,4 +73,5 @@ Zeebe, Operate, Tasklist, Keycloak, Identity, Elasticsearch, Console, Optimize, 
 ## Репозиторий Git (актуально)
 
 - **Remote:** `github.com/vvv-web/Camunda8-onprem`, ветка **`main`**.
-- **Что в истории `main` (смотреть `git log -20 --oneline`):** стабилизация публичного доступа; пользователь **Rastaturin_Oleg** и кластерный id **`rastaturin_oleg`** (детали в `ACCESS_FOR_TEAM.md`); опциональный стек **мониторинга** (профиль `monitoring`, `MONITORING.md`); правки `docker-compose-full.yaml`, `validate-config.sh`, `.env.example`.
+- **Ориентиры по коммитам:** `2aec01c` — пользователь **Rastaturin_Oleg** / **`rastaturin_oleg`** (`ACCESS_FOR_TEAM.md`); `692dc74` — мониторинг Prometheus/Grafana, профиль `monitoring`, `docker-compose-full.yaml`, `validate-config.sh`, `.env.example`, доки `MONITORING*.md`.
+- Полная история: `git log -20 --oneline`.
