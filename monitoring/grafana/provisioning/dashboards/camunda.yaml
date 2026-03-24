@@ -1,0 +1,16 @@
+# Шаг дашборды: file provisioning (официально Grafana).
+# https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards
+
+apiVersion: 1
+
+providers:
+  - name: camunda-official
+    orgId: 1
+    folder: Camunda
+    folderUid: camunda-official
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 60
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

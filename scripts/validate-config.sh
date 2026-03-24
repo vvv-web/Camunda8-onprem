@@ -120,6 +120,22 @@ main() {
   check_compose_file "$ROOT_DIR/docker-compose-full.yaml"
   check_compose_file "$ROOT_DIR/docker-compose-web-modeler.yaml"
 
+  if [[ -f "$ROOT_DIR/monitoring/prometheus.yml" ]]; then
+    ok "Файл monitoring/prometheus.yml существует"
+  else
+    fail "Отсутствует monitoring/prometheus.yml (профиль monitoring)"
+  fi
+  if [[ -f "$ROOT_DIR/monitoring/grafana/provisioning/dashboards/json/zeebe.json" ]]; then
+    ok "Grafana: закоммичен официальный zeebe.json"
+  else
+    fail "Отсутствует monitoring/grafana/provisioning/dashboards/json/zeebe.json"
+  fi
+  if [[ -f "$ROOT_DIR/monitoring/grafana/provisioning/dashboards/json/data_layer.json" ]]; then
+    ok "Grafana: закоммичен официальный data_layer.json"
+  else
+    fail "Отсутствует monitoring/grafana/provisioning/dashboards/json/data_layer.json"
+  fi
+
   check_file_contains \
     "$ROOT_DIR/.identity/application.yaml" \
     'issuer-url: "https://${HOST}/auth/realms/camunda-platform"' \

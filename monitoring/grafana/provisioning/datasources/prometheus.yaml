@@ -1,0 +1,14 @@
+# Шаг datasource: provisioning источников данных (официально Grafana).
+# https://grafana.com/docs/grafana/latest/administration/provisioning/#data-sources
+
+apiVersion: 1
+
+datasources:
+  # UID совпадает с подстановкой в JSON дашбордов Camunda (было ${DS_PROMETHEUS}).
+  - name: Prometheus
+    uid: camunda-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

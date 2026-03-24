@@ -117,8 +117,9 @@ services:
       management.endpoints.web.exposure.include: health,configprops
       MANAGEMENT_ENDPOINT_CONFIGPROPS_SHOW_VALUES: ALWAYS
       management.endpoint.health.probes.enabled: "true"
+    # С context path /optimize актуатор и readyz живут под префиксом (иначе 404 и Docker помечает unhealthy)
     healthcheck:
-      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:8090/api/readyz"]
+      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:8090/optimize/api/readyz"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -319,8 +320,8 @@ services:
       test: [ "CMD", "wget", "-O-", "--no-verbose", "--tries=1", "http://localhost:8091/health/readiness" ]
       interval: 30s
       timeout: 5s
-      retries: 5
-      start_period: 60s
+      retries: 8
+      start_period: 120s
     environment:
       JAVA_OPTIONS: -Xmx512m
       LOGGING_LEVEL_IO_CAMUNDA_MODELER: DEBUG
@@ -357,6 +358,8 @@ services:
       - camunda-platform
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      # OIDC discovery по https://${HOST}/... из контейнера: резолв на VPS nginx (см. MAINTAIN_PUBLIC_ACCESS.md)
+      - "camunda.acom-offer-desk.ru:155.212.160.162"
 
   web-modeler-webapp:
     container_name: web-modeler-webapp
@@ -458,12 +461,59 @@ services:
       keycloak:
         condition: service_healthy
 
+  # Мониторинг (Prometheus + Grafana): только с --profile monitoring — не влияет на обычный `docker compose up`.
+  # См. MONITORING.md и https://docs.camunda.io/docs/self-managed/operational-guides/monitoring/metrics/
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:${PROMETHEUS_VERSION:-v3.2.1}
+    container_name: camunda-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - "./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:19090:9090"
+    networks:
+      - camunda-platform
+    restart: on-failure
+    depends_on:
+      orchestration:
+        condition: service_healthy
+
+  grafana:
+    profiles: ["monitoring"]
+    # 12.x: официальные дашборды Camunda 8.8 в __requires указывают Grafana ~12.0.x
+    image: grafana/grafana:${GRAFANA_VERSION:-12.0.2}
+    container_name: camunda-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_DEFAULT_THEME: dark
+      GF_SERVER_ROOT_URL: http://127.0.0.1:13000
+      GF_INSTALL_PLUGINS: ""
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - "./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro"
+    ports:
+      - "127.0.0.1:13000:3000"
+    networks:
+      - camunda-platform
+    restart: on-failure
+    depends_on:
+      - prometheus
+
 volumes:
   orchestration:
   elastic:
   postgres:
   keycloak-theme:
   postgres-web:
+  prometheus_data:
+  grafana_data:
 
 networks:
   # Note there are three bridge networks: One for Camunda Platform, one for Identity and one for Web Modeler.
