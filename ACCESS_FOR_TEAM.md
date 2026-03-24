@@ -131,6 +131,25 @@ docker compose -f docker-compose-full.yaml exec -T keycloak /opt/bitnami/keycloa
 
 ---
 
+## Кратко: пользователь Олег Растатурин (`Rastaturin_Oleg` в Keycloak)
+
+- **Важно (Operate / кластер):** Keycloak в токене отдаёт **`preferred_username` в нижнем регистре** (`rastaturin_oleg`). Роль **`admin` в Orchestration** должна быть выдана на **этот** id, иначе в Operate будет замок при живых ролях в Keycloak. Команда: **`./scripts/grant-orchestration-cluster-admin-role.sh rastaturin_oleg`** (не смешанный регистр `Rastaturin_Oleg`). Лишнюю выдачу на `Rastaturin_Oleg` можно снять: `CAMUNDA_FORCE_REASSIGN_ROLE=1` не поможет без смены аргумента — используйте `DELETE` через тот же API или оставьте (не мешает, если рабочая роль на `rastaturin_oleg`).
+- Пользователь описан в **`.identity/application.yaml`** (`keycloak.users`), тот же набор ролей, что у `demo`.
+- Применение на Keycloak: перезапуск Identity — **`./scripts/apply-identity-keycloak-users.sh`** (или **`./scripts/provision-user-rastaturin-oleg.sh`** — то же самое).
+- **Operate / Tasklist (роль кластера `admin`):** при `camunda.security.authorizations.enabled: true` недостаточно только Keycloak — нужна **роль `admin` в Orchestration Cluster**. Список `defaultRoles.admin.users` в **`.orchestration/application.yaml`** в основном срабатывает при **первичной** инициализации; для **уже работающего** стенда назначьте роль так:
+  - **Автоматизация:** `./scripts/grant-orchestration-cluster-admin-role.sh rastaturin_oleg` (см. блок выше про JWT). Проверка: `CAMUNDA_SUBJECT_PASSWORD='…' ./scripts/diagnose-orchestration-user-access.sh Rastaturin_Oleg`.
+  - Иначе в UI **Orchestration Cluster Identity** (раздел авторизаций в доке Camunda 8.8) — пользователю роль `admin`.
+  - Рестарт `orchestration` после правки YAML **не гарантирует** появление прав у нового пользователя, если кластер уже был инициализирован.
+- **Если в Operate всё равно «нет доступа», а API даёт 409 на выдачу `admin`:** чаще всего в JWT **`preferred_username` ≠ логин**, под которым выдана роль (Orchestration смотрит claim из `CAMUNDA_SECURITY_AUTHENTICATION_OIDC_USERNAMECLAIM`). Диагностика: **`CAMUNDA_SUBJECT_PASSWORD='…' ./scripts/diagnose-orchestration-user-access.sh Rastaturin_Oleg`**. Повторная выдача роли: **`CAMUNDA_FORCE_REASSIGN_ROLE=1 ./scripts/grant-orchestration-cluster-admin-role.sh Rastaturin_Oleg`**. Полный выход: **`https://camunda.acom-offer-desk.ru/logout`**, затем вход снова (лучше инкогнито).
+- Альтернатива без правки YAML: **`CAMUNDA_NEW_USER_PASSWORD='…' ./scripts/provision-camunda-keycloak-user.sh Rastaturin_Oleg Oleg Rastaturin email@example.com`**
+- В **Identity** при необходимости назначить cluster-роль **`admin`** (как у `igor_bolshakov`), если не хватает прав на Console / другие компоненты.
+
+**Учётные данные:**
+- **Логин в Keycloak (как заводили):** `Rastaturin_Oleg` (вход обычно без учёта регистра; в JWT для Camunda — **`rastaturin_oleg`**)
+- **Пароль:** `ORastaturin` (рекомендуется сменить после первого входа)
+
+---
+
 ## Шпаргалка igor_bolshakov: логин, пароль, ссылки и офф. документация
 
 | Логин | Пароль |

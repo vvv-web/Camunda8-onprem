@@ -189,6 +189,20 @@ keycloak:
         - Web Modeler Admin
         - Console
         - Orchestration
+    # В Keycloak логин может быть Rastaturin_Oleg, но в JWT preferred_username часто lowercase (rastaturin_oleg) —
+    # роль admin в Orchestration выдавать на id из JWT: ./scripts/grant-orchestration-cluster-admin-role.sh rastaturin_oleg
+    - username: "Rastaturin_Oleg"
+      password: "ORastaturin"
+      firstName: "Oleg"
+      lastName: "Rastaturin"
+      email: "oleg.rastaturin@example.com"
+      roles:
+        - ManagementIdentity
+        - Optimize
+        - Web Modeler
+        - Web Modeler Admin
+        - Console
+        - Orchestration
 
 server:
   port: 8084

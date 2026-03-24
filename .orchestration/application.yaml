@@ -93,6 +93,7 @@ camunda:
           users:
             - demo
             - igor_bolshakov
+            - rastaturin_oleg
           clients:
             - orchestration
         connectors:
