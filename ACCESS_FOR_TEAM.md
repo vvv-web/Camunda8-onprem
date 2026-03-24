@@ -197,6 +197,54 @@ docker compose -f docker-compose-full.yaml exec -T keycloak /opt/bitnami/keycloa
 
 ---
 
+## Шпаргалка Rastaturin_Oleg (Олег Растатурин): логин, пароль, ссылки и офф. документация
+
+| Логин | Пароль |
+|-------|--------|
+| `Rastaturin_Oleg` | `ORastaturin` |
+
+**Заметка:** в токене Camunda для кластера используется id **`rastaturin_oleg`** (нижний регистр). На это имя выдана роль **`admin`** в Orchestration — без этого в Operate/Tasklist будет «нет доступа», хотя вход в Keycloak успешен. Для **входа в браузере** используйте логин из таблицы (регистр обычно не важен).
+
+**Полный выход из аккаунта (сброс сессии Keycloak):** https://camunda.acom-offer-desk.ru/logout — после этого при следующем заходе снова запросит пароль (удобно проверять в режиме инкогнито).
+
+### Ссылки и краткое описание (с офф. документацией)
+
+| Компонент | URL | Краткое описание | Офф. документация |
+|-----------|-----|------------------|-------------------|
+| **Operate** | https://camunda.acom-offer-desk.ru/operate | Мониторинг и отладка процессов: просмотр активных/завершённых инстансов, инциденты, переменные, batch-операции | [Introduction to Operate](https://docs.camunda.io/docs/components/operate/operate-introduction/) |
+| **Tasklist** | https://camunda.acom-offer-desk.ru/tasklist | Выполнение пользовательских задач (User Tasks): задачи назначаются пользователям при выполнении BPMN-процессов | [Introduction to Tasklist](https://docs.camunda.io/docs/components/tasklist/introduction-to-tasklist/) |
+| **Console** | https://camunda.acom-offer-desk.ru/console/ | Администрирование Camunda 8: управление кластерами, доступом, настройками | [Introduction to Console](https://docs.camunda.io/docs/components/console/introduction-to-console/) |
+| **Optimize** | https://camunda.acom-offer-desk.ru/optimize/ | Аналитика процессов: метрики, дашборды, отчёты для улучшения процессов | [Getting started with Optimize](https://docs.camunda.io/docs/components/optimize/improve-processes-with-optimize/) |
+| **Web Modeler** | https://camunda.acom-offer-desk.ru/modeler | Моделирование BPMN в браузере: создание и редактирование диаграмм процессов | [Web Modeler](https://docs.camunda.io/docs/components/modeler/web-modeler/) |
+| **Identity** | https://camunda.acom-offer-desk.ru/identity | Управление пользователями, ролями и доступом к Console, Web Modeler, Optimize | [What is Identity](https://docs.camunda.io/docs/self-managed/identity/what-is-identity/) |
+| **Keycloak admin** | https://camunda.acom-offer-desk.ru/auth/admin/ | Администрирование IdP: создание пользователей, realm, клиентов | [Connect to Keycloak](https://docs.camunda.io/docs/self-managed/identity/configuration/connect-to-an-existing-keycloak) |
+| **REST API** | https://camunda.acom-offer-desk.ru/v2 | API оркестрации: старт процессов, задачи, запросы | [Camunda 8 REST API Overview](https://docs.camunda.io/docs/apis-tools/camunda-api-rest/camunda-api-rest-overview) |
+
+*Портал Camunda 8 Docs: https://docs.camunda.io*
+
+**Keycloak admin:** для обычного пользователя модуля доступ **не предполагается** (ожидаемо *Permission denied* / нет прав realm admin) — как у коллег с рабочим входом в Operate и Modeler.
+
+---
+
+Назначенные роли (как у `demo` / `igor_bolshakov`):
+
+- `ManagementIdentity`
+- `Optimize`
+- `Web Modeler`
+- `Web Modeler Admin`
+- `Console`
+- `Orchestration`
+
+Плюс в **Orchestration Cluster** пользователю **`rastaturin_oleg`** назначена роль **`admin`** (Operate / Tasklist / API). См. раздел «Кратко: пользователь Олег Растатурин» выше и скрипт `./scripts/grant-orchestration-cluster-admin-role.sh rastaturin_oleg`.
+
+Чем проверили (рабочий сценарий):
+
+- вход под `Rastaturin_Oleg` на https://camunda.acom-offer-desk.ru/operate — дашборд без замка
+- те же компоненты по ссылкам из таблицы (Tasklist, Modeler, Console, Optimize, Identity)
+- при необходимости — выход через https://camunda.acom-offer-desk.ru/logout и повторный вход
+
+---
+
 ## Остановка и запуск (для администратора)
 
 ```bash
