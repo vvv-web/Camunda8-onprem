@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: camunda-identity-policy
+  namespace: camunda
+data:
+  allowedRealms: "master,camunda-platform"
+  issuer: "http://127.0.0.1:18081/auth/realms/camunda-platform"
+  operateRedirect: "http://127.0.0.1:18082/operate"
+  tasklistRedirect: "http://127.0.0.1:18083/tasklist"
+  sourceOfTruthDoc: "docs/camunda-keycloak-ssot.md"

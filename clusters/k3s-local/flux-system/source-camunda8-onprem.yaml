@@ -1,0 +1,11 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: camunda8-onprem
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/vvv-web/Camunda8-onprem.git
+  ref:
+    branch: gitops/flux-camunda-k3s-bootstrap
+  timeout: 60s

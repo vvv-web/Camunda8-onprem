@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: camunda-realm-guardrails
+  namespace: camunda
+data:
+  whitelist: "master,camunda-platform"
+  denyExamples: "acom-offerdesk,converter,order_database"
+  enforcement: "Run runbooks/preflight-realm-whitelist.sh before any realm import."

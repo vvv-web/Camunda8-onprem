@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: camunda
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: camunda-values
+  namespace: camunda
+data:
+  values.yaml: |
+    global:
+      ingress:
+        enabled: true
+        className: nginx
+        host: camunda.local
+        tls:
+          enabled: false
+      elasticsearch:
+        enabled: true
+        external: true
+        url:
+          protocol: http
+          host: 172.17.0.1
+          port: 9200
+      identity:
+        auth:
+          issuer: http://127.0.0.1:18081/auth/realms/camunda-platform
+          publicIssuerUrl: http://127.0.0.1:18081/auth/realms/camunda-platform
+          operate:
+            redirectUrl: http://127.0.0.1:18082/operate
+          tasklist:
+            redirectUrl: http://127.0.0.1:18083/tasklist
+
+    elasticsearch:
+      enabled: false
+
+    optimize:
+      enabled: false
+    console:
+      enabled: false
+    webModeler:
+      enabled: false
+    connectors:
+      enabled: false
+
+    zeebe:
+      clusterSize: "1"
+      partitionCount: "1"
+      replicationFactor: "1"
+
+    zeebeGateway:
+      replicas: 1
+
+    identity:
+      firstUser:
+        enabled: true
+        username: "demo"
+        password: "CHANGEME"
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: camunda
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://helm.camunda.io
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: camunda
+  namespace: flux-system
+spec:
+  interval: 30m
+  targetNamespace: camunda
+  releaseName: camunda
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: camunda-platform
+      version: "12.9.0"
+      sourceRef:
+        kind: HelmRepository
+        name: camunda
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: camunda-values
+      valuesKey: values.yaml
