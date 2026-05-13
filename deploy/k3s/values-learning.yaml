@@ -1,0 +1,44 @@
+# Camunda 8.7 + external Elasticsearch for local k3s training
+# Canonical location: Camunda8-onprem/deploy/k3s/values-learning.yaml
+# Source of truth for realm/issuer/redirect policy:
+# Camunda8-onprem/docs/camunda-keycloak-ssot.md
+global:
+  ingress:
+    enabled: true
+    className: nginx
+    host: camunda.local
+    tls:
+      enabled: false
+  elasticsearch:
+    enabled: true
+    external: true
+    url:
+      protocol: http
+      host: 172.17.0.1
+      port: 9200
+
+elasticsearch:
+  enabled: false
+
+optimize:
+  enabled: false
+console:
+  enabled: false
+webModeler:
+  enabled: false
+connectors:
+  enabled: false
+
+zeebe:
+  clusterSize: "1"
+  partitionCount: "1"
+  replicationFactor: "1"
+
+zeebeGateway:
+  replicas: 1
+
+identity:
+  firstUser:
+    enabled: true
+    username: "demo"
+    password: "CHANGEME"
